@@ -2,9 +2,6 @@
 import scanpy as sc
 import anndata as ad
 
-# Data retrieval
-import pooch
-
 sc.settings.set_figure_params(dpi=50, facecolor="white")
 
 adata = sc.read_h5ad("Liver_facs.h5ad")  # your data
