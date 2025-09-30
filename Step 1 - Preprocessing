@@ -3,7 +3,7 @@ import scanpy as sc
 import anndata as ad
 
 # Data retrieval
-import pooch
+import pooch #not necessary because i had already downloaded the data locally
 
 sc.settings.set_figure_params(dpi=50, facecolor="white")
 
