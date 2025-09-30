@@ -1,0 +1,27 @@
+# Core scverse libraries
+import scanpy as sc
+import anndata as ad
+
+# Data retrieval
+import pooch
+
+sc.settings.set_figure_params(dpi=50, facecolor="white")
+
+adata = sc.read_h5ad("Liver_facs.h5ad")  # your data
+adata.var_names_make_unique()
+
+# Define gene categories
+adata.var["mt"] = adata.var_names.str.startswith("Mt-")  # mouse mitochondrial genes
+adata.var["ribo"] = adata.var_names.str.startswith(("RPS", "RPL"))  # ribosomal genes
+adata.var["hb"] = adata.var_names.str.contains("^HB(?!P)")  # hemoglobin genes, exclude pseudogenes
+
+# Calculate QC metrics
+sc.pp.calculate_qc_metrics(
+    adata,
+    qc_vars=["mt", "ribo", "hb"],  # include the defined gene groups
+    inplace=True,
+    log1p=False  # usually we calculate QC metrics on raw counts, not log1p
+)
+
+# Quick check
+print(adata.obs.head())
