@@ -1,0 +1,26 @@
+# Core scverse libraries
+import scanpy as sc
+import anndata as ad
+
+# Data retrieval
+import pooch
+
+sc.settings.set_figure_params(dpi=50, facecolor="white")
+
+# Load your liver FACS Smart-seq2 data
+adata = sc.read_h5ad("Liver_facs.h5ad")  # path to your file
+
+# Make sure variable (gene) names are unique
+adata.var_names_make_unique()
+
+# Make sure observation (cell) names are unique
+adata.obs_names_make_unique()
+
+# Optional: add a sample label if needed (here all cells come from same sample)
+adata.obs["sample"] = "Liver"
+
+# Quick check of cell counts
+print(adata.obs["sample"].value_counts())
+
+# Inspect AnnData object
+print(adata)
