@@ -4,21 +4,27 @@ import anndata as ad
 
 sc.settings.set_figure_params(dpi=50, facecolor="white")
 
-adata = sc.read_h5ad("Liver_facs.h5ad")  # your data
+# Load your data
+adata = sc.read_h5ad("Liver_facs.h5ad")
 adata.var_names_make_unique()
+adata.obs_names_make_unique()
 
 # Define gene categories
-adata.var["mt"] = adata.var_names.str.startswith("Mt-")  # mouse mitochondrial genes
-adata.var["ribo"] = adata.var_names.str.startswith(("RPS", "RPL"))  # ribosomal genes
-adata.var["hb"] = adata.var_names.str.contains("^HB(?!P)")  # hemoglobin genes, exclude pseudogenes
+#adata.var["mt"] = adata.var_names.str.startswith("Mt-")  # mouse mitochondrial genes
+#adata.var["ribo"] = adata.var_names.str.startswith(("RPS", "RPL"))  # ribosomal genes
+#adata.var["hb"] = adata.var_names.str.contains("^HB(?!P)")  # hemoglobin genes, exclude pseudogenes
 
-# Calculate QC metrics
-sc.pp.calculate_qc_metrics(
+#Can't be used because my data uses Ensembl style IDs, meaning that these prefixes don't match any gene and the counts that they would produce would be zero
+#And since the data doesnt provide the gene IDs for mapping, the only option would be to use a lookup table
+#since i am more interested in the clustering per cell type, i will skip specific gene counts
+
+# Calculate basic QC metrics (without gene sets)
+sc.pp.calculate_qc_metrics(adata, inplace=True)
+
+# Violin plots for key QC metrics
+sc.pl.violin(
     adata,
-    qc_vars=["mt", "ribo", "hb"],  # include the defined gene groups
-    inplace=True,
-    log1p=False  # usually we calculate QC metrics on raw counts, not log1p
+    ['n_genes_by_counts', 'total_counts'],
+    jitter=0.4,
+    multi_panel=True
 )
-
-# Quick check
-print(adata.obs.head())
