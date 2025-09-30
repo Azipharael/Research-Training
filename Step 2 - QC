@@ -28,3 +28,14 @@ sc.pl.violin(
     jitter=0.4,
     multi_panel=True
 )
+
+# Scatter plot of total counts vs number of genes per cell, colored by batch (Shows which sequencing or experimental batch each cell came from.
+#Helps detect batch effects — e.g., if one batch has systematically higher total counts or more genes per cell.)
+
+sc.pl.scatter(
+    adata,
+    x="total_counts",
+    y="n_genes_by_counts",
+    color="batch",
+    title="Total counts vs Number of genes per cell (colored by batch)"
+)
