@@ -1,0 +1,20 @@
+import scanpy as sc
+
+# Load the filtered, normalized data
+adata = sc.read_h5ad("Liver_facs_filtered_normalized.h5ad")
+adata.var_names_make_unique()
+adata.obs_names_make_unique()
+
+# Highly variable gene selection
+# n_top_genes = 2000 as in the tutorial
+# batch_key = "batch" to account for multiple batches
+sc.pp.highly_variable_genes(adata, n_top_genes=2000, batch_key="batch")
+
+# Quick check of HVG annotation
+print(adata.var.highly_variable.value_counts())
+
+# Plot the highly variable genes
+sc.pl.highly_variable_genes(adata)
+
+# Save the HVG-annotated data for the next step
+adata.write("Liver_facs_filtered_normalized_HVG.h5ad")
