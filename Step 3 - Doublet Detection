@@ -38,3 +38,6 @@ adata = adata[~adata.obs['predicted_doublet'], :].copy()
 remaining_counts = original_counts - doublet_counts
 print("\nExpected remaining cells per batch after removing doublets:")
 print(remaining_counts)
+
+# Save filtered data
+adata.write("Liver_facs_filtered.h5ad")
