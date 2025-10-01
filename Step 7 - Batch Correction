@@ -6,17 +6,18 @@ adata = sc.read_h5ad("Liver_facs_filtered_normalized.h5ad")
 adata.var_names_make_unique()
 adata.obs_names_make_unique()
 
-# Run PCA (subset to HVGs automatically)
-sc.tl.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+# --- UMAP before batch correction ---
+sc.pp.neighbors(adata, n_neighbors=15, n_pcs=30)  # uses stored PCA
+sc.tl.umap(adata)
+sc.pl.umap(adata, color='batch', title="UMAP before batch correction")
 
-# Run BBKNN to correct for batch effects using batch labels
+# --- Batch correction with BBKNN ---
 sce.pp.bbknn(adata, batch_key='batch')
 
-# Compute UMAP on the batch-corrected neighborhood graph
+# --- UMAP after batch correction ---
 sc.tl.umap(adata)
+sc.pl.umap(adata, color='batch', title="UMAP after batch correction")
 
 # Save the batch-corrected dataset
 adata.write("Liver_facs_batch_corrected.h5ad")
 
-# Optional: visualize UMAP colored by batch to check correction
-sc.pl.umap(adata, color='batch')
