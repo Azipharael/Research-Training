@@ -1,0 +1,22 @@
+import scanpy as sc
+import scanpy.external as sce
+
+# Load filtered, normalized, HVG data
+adata = sc.read_h5ad("Liver_facs_filtered_normalized.h5ad")
+adata.var_names_make_unique()
+adata.obs_names_make_unique()
+
+# Run PCA (subset to HVGs automatically)
+sc.tl.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+
+# Run BBKNN to correct for batch effects using batch labels
+sce.pp.bbknn(adata, batch_key='batch')
+
+# Compute UMAP on the batch-corrected neighborhood graph
+sc.tl.umap(adata)
+
+# Save the batch-corrected dataset
+adata.write("Liver_facs_batch_corrected.h5ad")
+
+# Optional: visualize UMAP colored by batch to check correction
+sc.pl.umap(adata, color='batch')
