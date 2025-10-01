@@ -1,1 +1,22 @@
+import scanpy as sc
+
+# Load the filtered data
+adata = sc.read_h5ad("Liver_facs_filtered.h5ad")
+adata.var_names_make_unique()
+adata.obs_names_make_unique()
+
+# Save the raw counts in a separate layer
+adata.layers["counts"] = adata.X.copy()
+
+# Normalize each cell by total counts to median count depth
+sc.pp.normalize_total(adata)  # default: target_sum = median count depth
+
+# Log1p transform (log(x + 1))
+sc.pp.log1p(adata)
+
+# Quick check
+print(adata)
+
+# After normalization and log1p
+adata.write("Liver_facs_filtered_normalized.h5ad")
 
