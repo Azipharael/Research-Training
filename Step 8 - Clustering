@@ -1,0 +1,55 @@
+# =============================================================================
+# SCRIPT: CLUSTERING OF BATCH-CORRECTED DATA
+# =============================================================================
+
+import scanpy as sc
+
+# --- 1. SETUP ---
+# Define the input file (the output from your batch correction script)
+# and the name for the final, clustered output file.
+input_file = "Liver_facs_batch_corrected.h5ad"
+output_file = "Liver_facs_clustered.h5ad"
+
+# --- 2. LOAD THE INTEGRATED DATA ---
+print(f"Loading integrated data from {input_file}...")
+adata = sc.read_h5ad(input_file)
+
+# The loaded AnnData object already contains:
+#  - A PCA calculated on the HVGs.
+#  - A batch-corrected neighborhood graph calculated by BBKNN.
+#  - A UMAP embedding calculated from the corrected graph.
+
+# --- 3. LEIDEN CLUSTERING ---
+# This is the core step. The function will automatically find and use the
+# pre-computed, batch-corrected neighborhood graph to find cell communities.
+print("Running Leiden clustering...")
+
+# We use the parameters recommended by the Scanpy tutorial for speed.
+# The 'resolution' parameter is the most important one to adjust.
+# Higher resolution -> more clusters. Lower resolution -> fewer clusters.
+sc.tl.leiden(
+    adata,
+    flavor="igraph",    # Use the fast 'igraph' implementation
+    n_iterations=2,   # A fixed number of iterations for speed
+    resolution=0.6      # Adjust this value to change the number of clusters
+)
+
+# --- 4. VISUALIZATION ---
+# Plot the UMAP, now colored by the new 'leiden' cluster labels.
+# We also include the 'batch' plot to re-confirm that our clusters
+# are well-mixed across the batches.
+print("Generating UMAP plot of Leiden clusters...")
+sc.pl.umap(
+    adata,
+    color=['leiden', 'batch'],  # Plot both clusters and batch side-by-side
+    legend_loc='on data',
+    title='UMAP Colored by Leiden Clusters',
+    save="_leiden_clusters.png" # Saves the plot to a file
+)
+
+# --- 5. SAVE THE FINAL CLUSTERED DATA ---
+# This file now contains everything from before, plus the final cluster assignments.
+print(f"Saving clustered data to {output_file}...")
+adata.write(output_file)
+
+print("\nClustering script finished successfully.")
