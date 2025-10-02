@@ -1,1 +1,59 @@
+# =============================================================================
+# SCRIPT: CLUSTERING OF UNCORRECTED DATA (FOR COMPARISON)
+# =============================================================================
 
+import scanpy as sc
+
+# --- 1. SETUP ---
+# Define the input file (your original, pre-correction data)
+# and the name for the output file.
+input_file = "Liver_facs_filtered_normalized.h5ad"
+output_file = "Liver_facs_uncorrected_clustered.h5ad"
+
+# --- 2. LOAD THE ORIGINAL DATA ---
+print(f"Loading original data from {input_file}...")
+adata = sc.read_h5ad(input_file)
+adata.var_names_make_unique()
+adata.obs_names_make_unique()
+
+# --- 3. PCA ---
+# Run PCA on the highly variable genes. Scanpy does this automatically if HVGs are flagged.
+print("Running PCA on highly variable genes...")
+sc.tl.pca(adata, n_comps=50)
+
+# --- 4. BUILD UNCORRECTED NEIGHBORHOOD GRAPH ---
+# This is a standard neighborhood graph based on the uncorrected PCA.
+# The batch effect is fully present in this graph.
+print("Building uncorrected neighborhood graph...")
+sc.pp.neighbors(adata, n_neighbors=15, n_pcs=30)
+
+# --- 5. LEIDEN CLUSTERING ON UNCORRECTED DATA ---
+# This clustering will be heavily influenced by the batch effect because
+# the underlying graph is not corrected.
+print("Running Leiden clustering on uncorrected data...")
+sc.tl.leiden(
+    adata,
+    flavor="igraph",    # Use the fast 'igraph' implementation
+    n_iterations=2,   # A fixed number of iterations for speed
+    resolution=0.6      # Using the same resolution as the other script for a fair comparison
+)
+
+# --- 6. VISUALIZATION ---
+# Compute the UMAP based on the uncorrected graph.
+print("Computing and plotting UMAP...")
+sc.tl.umap(adata)
+
+# Plot the UMAP colored by the resulting clusters and by batch.
+# You should see a strong correlation between the two.
+sc.pl.umap(
+    adata,
+    color=['leiden', 'batch'],
+    title='UMAP of Uncorrected Data',
+    save="_uncorrected_clusters.png"
+)
+
+# --- 7. SAVE THE UNCORRECTED CLUSTERED DATA ---
+print(f"Saving uncorrected clustered data to {output_file}...")
+adata.write(output_file)
+
+print("\nUncorrected clustering script finished successfully.")
