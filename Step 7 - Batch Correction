@@ -2,41 +2,41 @@ import scanpy as sc
 import scanpy.external as sce
 
 # --- 1. SETUP ---
-# Define your input and output file names
-input_file = "Liver_facs_filtered_normalized.h5ad"
+# Define your input and output file names.
+# The input file already has Highly Variable Genes (HVGs) identified.
+input_file = "Liver_facs_filtered_normalized_HVG.h5ad"
 output_file = "Liver_facs_batch_corrected.h5ad"
 
-print(f"Loading data from {input_file}...")
+print(f"Loading data with pre-computed HVGs from {input_file}...")
 adata = sc.read_h5ad(input_file)
 adata.var_names_make_unique()
 adata.obs_names_make_unique()
 
 # --- 2. PCA ---
-# Run PCA on the highly variable genes. This is essential for both the 
-# uncorrected and corrected UMAPs. Scanpy automatically uses HVGs if present.
-print("Running PCA on highly variable genes...")
+# Run PCA. Scanpy will automatically use the HVGs that are already flagged
+# in your input file (in adata.var['highly_variable']).
+print("Running PCA on the pre-selected highly variable genes...")
 sc.tl.pca(adata)
 
 # --- 3. UMAP BEFORE BATCH CORRECTION ---
-# First, build a standard neighborhood graph on the uncorrected PCA
+# Build a standard neighborhood graph on the (correct) HVG-based PCA.
 print("Generating UMAP before batch correction...")
 sc.pp.neighbors(adata, n_neighbors=15, n_pcs=30)
 
-# Compute the UMAP based on the uncorrected graph
+# Compute the UMAP based on the uncorrected graph.
 sc.tl.umap(adata)
 
-# Plot the uncorrected UMAP, colored by batch
+# Plot the uncorrected UMAP, colored by batch.
 sc.pl.umap(
     adata, 
     color='batch', 
-    title="UMAP Before Batch Correction",
-    show=True, # Set to False if running in a non-interactive environment
-    save="_before_correction.png"
+    title="UMAP Before Batch Correction (on HVGs)",
+    show=True,
 )
 
 # --- 4. BATCH CORRECTION WITH BBKNN ---
-# Now, run BBKNN. This will overwrite the previous neighborhood graph 
-# with a new, batch-corrected one. The original PCA is used as input.
+# Run BBKNN. This will use the HVG-based PCA as input and overwrite the
+# previous neighborhood graph with a new, batch-corrected one.
 print("Running BBKNN for batch integration...")
 sce.pp.bbknn(adata, batch_key='batch')
 
@@ -46,18 +46,17 @@ sce.pp.bbknn(adata, batch_key='batch')
 print("Generating UMAP after batch correction...")
 sc.tl.umap(adata)
 
-# Plot the corrected UMAP, colored by batch
+# Plot the corrected UMAP, colored by batch.
 sc.pl.umap(
     adata, 
     color='batch', 
-    title="UMAP After Batch Correction",
+    title="UMAP After Batch Correction (on HVGs)",
     show=True,
-    save="_after_correction.png"
 )
 
 # --- 6. SAVE THE CORRECTED DATA ---
 # The AnnData object now contains the batch-corrected neighborhood graph,
-# which is what's needed for clustering.
+# which is what's needed for the next clustering step.
 print(f"Saving batch-corrected data to {output_file}...")
 adata.write(output_file)
 
