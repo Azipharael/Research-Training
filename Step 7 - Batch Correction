@@ -1,23 +1,64 @@
 import scanpy as sc
 import scanpy.external as sce
 
-# Load filtered, normalized, HVG data
-adata = sc.read_h5ad("Liver_facs_filtered_normalized.h5ad")
+# --- 1. SETUP ---
+# Define your input and output file names
+input_file = "Liver_facs_filtered_normalized.h5ad"
+output_file = "Liver_facs_batch_corrected.h5ad"
+
+print(f"Loading data from {input_file}...")
+adata = sc.read_h5ad(input_file)
 adata.var_names_make_unique()
 adata.obs_names_make_unique()
 
-# --- UMAP before batch correction ---
-sc.pp.neighbors(adata, n_neighbors=15, n_pcs=30)  # uses stored PCA
-sc.tl.umap(adata)
-sc.pl.umap(adata, color='batch', title="UMAP before batch correction")
+# --- 2. PCA ---
+# Run PCA on the highly variable genes. This is essential for both the 
+# uncorrected and corrected UMAPs. Scanpy automatically uses HVGs if present.
+print("Running PCA on highly variable genes...")
+sc.tl.pca(adata)
 
-# --- Batch correction with BBKNN ---
+# --- 3. UMAP BEFORE BATCH CORRECTION ---
+# First, build a standard neighborhood graph on the uncorrected PCA
+print("Generating UMAP before batch correction...")
+sc.pp.neighbors(adata, n_neighbors=15, n_pcs=30)
+
+# Compute the UMAP based on the uncorrected graph
+sc.tl.umap(adata)
+
+# Plot the uncorrected UMAP, colored by batch
+sc.pl.umap(
+    adata, 
+    color='batch', 
+    title="UMAP Before Batch Correction",
+    show=True, # Set to False if running in a non-interactive environment
+    save="_before_correction.png"
+)
+
+# --- 4. BATCH CORRECTION WITH BBKNN ---
+# Now, run BBKNN. This will overwrite the previous neighborhood graph 
+# with a new, batch-corrected one. The original PCA is used as input.
+print("Running BBKNN for batch integration...")
 sce.pp.bbknn(adata, batch_key='batch')
 
-# --- UMAP after batch correction ---
+# --- 5. UMAP AFTER BATCH CORRECTION ---
+# Re-compute the UMAP. It will now automatically use the new, 
+# corrected neighborhood graph created by BBKNN.
+print("Generating UMAP after batch correction...")
 sc.tl.umap(adata)
-sc.pl.umap(adata, color='batch', title="UMAP after batch correction")
 
-# Save the batch-corrected dataset
-adata.write("Liver_facs_batch_corrected.h5ad")
+# Plot the corrected UMAP, colored by batch
+sc.pl.umap(
+    adata, 
+    color='batch', 
+    title="UMAP After Batch Correction",
+    show=True,
+    save="_after_correction.png"
+)
 
+# --- 6. SAVE THE CORRECTED DATA ---
+# The AnnData object now contains the batch-corrected neighborhood graph,
+# which is what's needed for clustering.
+print(f"Saving batch-corrected data to {output_file}...")
+adata.write(output_file)
+
+print("\nScript finished successfully.")
