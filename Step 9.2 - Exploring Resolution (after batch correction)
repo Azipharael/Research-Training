@@ -45,7 +45,7 @@ sc.pl.umap(
 # biological cell type labels to each cluster.
 
 # Optional: Save the AnnData object with the new clustering information
-# adata.write_h5ad('Liver_facs_uncorrected_annotated_resolutions.h5ad')
+adata.write_h5ad('Liver_facs_corrected_annotated_resolutions.h5ad')
 
 print("\nScript finished. The AnnData object now contains clustering results for resolutions:", resolutions)
 print("The UMAP plot shows these different clustering solutions.")
