@@ -1,0 +1,51 @@
+import scanpy as sc
+import pandas as pd
+
+# It is recommended to set the verbosity to 3 to see Scanpy's output
+sc.settings.verbosity = 3
+# Set the figure parameters
+sc.settings.set_figure_params(dpi=80, facecolor='white')
+
+# Load the pre-processed and clustered data
+# Ensure the file 'Liver_facs_uncorrected_clustered.h5ad' is in your working directory
+adata = sc.read_h5ad('Liver_facs_batch_corrected_clustered.h5ad')
+
+# --- Cell Annotation on Uncorrected Data ---
+# This script follows the initial steps of manual cell type annotation as
+# described in the Scanpy tutorial. The goal is to explore different
+# clustering resolutions to identify biologically meaningful cell groupings.
+
+# 1. Perform Leiden clustering with different resolutions
+# The tutorial suggests trying a range of resolutions to see how the
+# number of clusters changes. This helps in finding a resolution that
+# best separates known cell types.
+resolutions = [0.02, 0.5, 2.0]
+for res in resolutions:
+    sc.tl.leiden(
+        adata,
+        key_added=f"leiden_res_{res:4.2f}",
+        resolution=res,
+    )
+
+# 2. Visualize the clustering results on a UMAP plot
+# This allows for a visual inspection of how the different resolutions
+# partition the cells in the UMAP embedding. Lower resolutions will yield
+# fewer, larger clusters, while higher resolutions will result in more,
+# smaller clusters.
+sc.pl.umap(
+    adata,
+    color=[f"leiden_res_{res:4.2f}" for res in resolutions],
+    legend_loc="on data",
+    # You can optionally save the figure
+    # save="_leiden_resolutions.png"
+)
+
+# After running this script, the next step would be to compute marker genes
+# for a chosen resolution (e.g., leiden_res_0.50) to start assigning
+# biological cell type labels to each cluster.
+
+# Optional: Save the AnnData object with the new clustering information
+# adata.write_h5ad('Liver_facs_uncorrected_annotated_resolutions.h5ad')
+
+print("\nScript finished. The AnnData object now contains clustering results for resolutions:", resolutions)
+print("The UMAP plot shows these different clustering solutions.")
