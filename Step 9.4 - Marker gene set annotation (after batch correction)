@@ -1,1 +1,84 @@
+import scanpy as sc
+import pandas as pd
+import matplotlib.pyplot as plt
 
+# --- Manual Annotation for BATCH-CORRECTED Liver Data ---
+# This script is adapted to perform cell type annotation on the new,
+# batch-corrected clustering results. The main goal is to see if cell
+# types are better resolved and to create a new, more accurate annotation.
+
+# Setup Scanpy settings
+sc.settings.verbosity = 3
+sc.settings.set_figure_params(dpi=80, facecolor='white', frameon=False)
+
+# 1. Load the BATCH-CORRECTED AnnData object with new clustering results
+adata = sc.read_h5ad('Liver_facs_batch_corrected_clustered.h5ad')
+
+# 2. Define the canonical set of marker genes for LIVER cell types
+# This list remains the same, as the underlying biology has not changed.
+liver_marker_genes = {
+    'Hepatocyte': ['Alb', 'Apoa1', 'G6pc'],
+    'Kupffer Cell': ['Clec4f', 'Cd68', 'Marco'], # Liver-resident macrophages
+    'LSEC': ['Pecam1', 'Stab2', 'Vwf'], # Liver Sinusoidal Endothelial Cells
+    'Stellate Cell': ['Acta2', 'Dcn', 'Lrat'], # Also known as Ito cells
+    'Cholangiocyte': ['Krt19', 'Sox9', 'Epcam'], # Bile duct cells
+    'B cell': ['Cd79a', 'Ms4a1'],
+    'T/NK cell': ['Cd3d', 'Nkg7', 'Gzma'], # Grouping T and NK cells for now
+}
+
+# 3. Visualize marker expression on the NEW clusters
+# We will use a dotplot to see how our marker genes map to the new batch-corrected
+# clusters. This is the most important visualization for your new annotation.
+# Make sure "leiden_res_0.50" (or a similar key) exists in your new h5ad file.
+cluster_key_to_annotate = "leiden_res_0.50"
+sc.pl.dotplot(adata, liver_marker_genes, groupby=cluster_key_to_annotate, standard_scale="var", show=True)
+
+# Also, visualize the new clusters on a UMAP
+sc.pl.umap(adata, color=cluster_key_to_annotate, legend_loc='on data', title='Batch-Corrected Clusters')
+
+# --- USER ACTION REQUIRED: CREATE A NEW ANNOTATION MAP ---
+#
+# Your task is to inspect the new dotplot and UMAP above. The cluster numbers
+# will be different from the uncorrected data.
+#
+# What to look for:
+# - Are the cell types cleaner? For example, is there a single cluster that
+#   is now clearly "Stellate Cell" and another that is "Cholangiocyte",
+#   unlike the "mix" clusters you had before?
+# - Create a new mapping based on your observations.
+#
+# Once you have determined the new mapping, fill it in below and
+# uncomment the rest of the script to apply and visualize it.
+
+# 4. Manually map NEW cluster numbers to cell type names
+#
+# annotation_map_corrected = {
+#     '0': 'Hepatocyte',
+#     '1': 'LSEC',
+#     '2': 'Kupffer Cell',
+#     # ... continue for all your new clusters based on the dotplot ...
+#     # For example, you might now have a clean Stellate Cell cluster:
+#     # '8': 'Stellate Cell',
+# }
+
+# --- UNCOMMENT THE CODE BELOW AFTER YOU FILL IN THE MAP ---
+
+# # Apply the mapping to create a new annotation column in adata.obs
+# adata.obs['cell_type_corrected'] = adata.obs[cluster_key_to_annotate].map(annotation_map_corrected).astype('category')
+#
+# print("\nFinished mapping cluster numbers to new cell type names.")
+# print("Value counts for the new 'cell_type_corrected' annotation:")
+# print(adata.obs['cell_type_corrected'].value_counts())
+#
+# # 5. Visualize the final annotation on the UMAP
+# # This shows your final, clean cell type labels on the UMAP.
+# sc.pl.umap(adata, color='cell_type_corrected', legend_loc='on data', title='Final Batch-Corrected Annotation', show=True)
+#
+#
+# # 6. Visualize the annotated dotplot
+# # This plot confirms that your new labels align with the expected marker expression.
+# sc.pl.dotplot(adata, liver_marker_genes, groupby='cell_type_corrected', standard_scale='var', show=True)
+#
+# # Optional: Save the final annotated object
+# print("\nSaving final annotated object...")
+# adata.write_h5ad('Liver_facs_batch_corrected_annotated.h5ad')
