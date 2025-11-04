@@ -1,0 +1,120 @@
+import scanpy as sc
+import pandas as pd
+import gseapy as gp
+import os
+import mygene
+
+# ==============================================================================
+# --- PART 1: SETUP AND DATA PREPARATION ---
+# ==============================================================================
+
+# --- 1a. Define Inputs and Parameters ---
+input_h5ad_file = "Liver_facs_filtered_nonzero_normalized_HVG_reduced_clustered_annotated_allscores.h5ad" # Your final, fully processed file
+input_gmt_file = "SAUL_SEN_MAYO.v2025.1.Mm.gmt"
+cell_type_column = 'cell_type'
+all_cell_types_to_analyze = [
+    'Hepatocyte', 'Hepatocyte/NKT_mix', 'Immune_mix',
+    'Kupffer/Myeloid_mix', 'LSEC', 'Neutrophil'
+]
+
+# --- 1b. Load Main Data and Verify .raw Attribute ---
+print(f"--- Loading data from: {input_h5ad_file} ---")
+adata = sc.read_h5ad(input_h5ad_file)
+if adata.raw is None:
+    raise ValueError("The .raw attribute is missing, which is required for this analysis.")
+
+print(f"Main object has {adata.n_vars} genes. The .raw object has {adata.raw.n_vars} genes.")
+
+# --- 1c. THE DEFINITIVE FIX: Build the GSEA object exclusively from .raw ---
+print("\n--- Building a clean analysis object from the .raw attribute ---")
+
+# Create the new object. It will have the full 22,966 genes.
+adata_for_gsea = adata.raw.to_adata()
+
+# Copy over the essential cell metadata (annotations) from the main object.
+adata_for_gsea.obs = adata.obs
+
+# --- 1d. Translate the Gene IDs from the .raw object ---
+print("--- Translating RIKEN gene IDs from the .raw object to standard gene symbols ---")
+# This is the full list of 22,966 RIKEN IDs from the .raw object
+original_raw_riken_ids = adata.raw.var_names
+
+mg = mygene.MyGeneInfo()
+gene_info = mg.querymany(
+    original_raw_riken_ids.tolist(), scopes='reporter,symbol,alias', fields='symbol', species='mouse', as_dataframe=True
+)
+
+# Create the map and the final list of translated names
+id_to_symbol_map = gene_info['symbol'].dropna().to_dict()
+mapped_series = pd.Series(original_raw_riken_ids).map(id_to_symbol_map)
+final_raw_gene_names = mapped_series.combine_first(pd.Series(original_raw_riken_ids))
+
+# Assign the NEWLY TRANSLATED list of 22,966 names to our GSEA object
+adata_for_gsea.var_names = final_raw_gene_names.tolist()
+adata_for_gsea.var_names_make_unique() # Ensure all gene names are unique
+print(f"Gene ID translation complete. The GSEA object has {adata_for_gsea.n_vars} genes with standard symbols.")
+
+# --- 1e. Correctly Normalize and Log-transform the Data ---
+# The data in .raw.X is normalized but likely NOT logged. We will explicitly log it.
+# This resolves the warnings from rank_genes_groups.
+print("\nLog-transforming the data for DE analysis...")
+sc.pp.log1p(adata_for_gsea)
+
+# Load the gene set file
+senmayo_gene_set = gp.read_gmt(input_gmt_file)
+
+# ==============================================================================
+# --- PART 2: RUN DIFFERENTIAL EXPRESSION ---
+# ==============================================================================
+print("\n--- Running Differential Expression for all cell types vs. rest ---")
+sc.tl.rank_genes_groups(
+    adata_for_gsea,
+    groupby=cell_type_column,
+    groups=all_cell_types_to_analyze,
+    reference='rest',
+    method='t-test'
+)
+print("Differential Expression complete.")
+
+# ==============================================================================
+# --- PART 3 & 4: GSEA Loop and Final Summary ---
+# ==============================================================================
+# (This entire section is correct and does not need to be changed)
+gsea_results_list = []
+print("\n" + "="*80)
+for cell_type in all_cell_types_to_analyze:
+    print(f"\n--- Analyzing cell type: {cell_type} ---")
+    de_results = sc.get.rank_genes_groups_df(adata_for_gsea, group=cell_type)
+    if de_results is None or de_results.empty:
+        print(f"Could not retrieve DE results for '{cell_type}'. Skipping.")
+        continue
+    ranked_gene_list = de_results[['names', 'scores']].set_index('names').dropna()
+    
+    print("Running GSEA Prerank on the SenMayo gene set...")
+    prerank_result = gp.prerank(
+        rnk=ranked_gene_list, gene_sets=senmayo_gene_set, min_size=5, max_size=500, seed=42
+    )
+    
+    result_df = prerank_result.res2d
+    senmayo_result = result_df[result_df.index == 'SAUL_SEN_MAYO']
+    
+    if not senmayo_result.empty:
+        gsea_results_list.append({
+            'cell_type': cell_type,
+            'enrichment_score (ES)': senmayo_result['es'].iloc[0],
+            'normalized_ES (NES)': senmayo_result['nes'].iloc[0],
+            'p_value': senmayo_result['pval'].iloc[0],
+            'fdr_q_value': senmayo_result['fdr'].iloc[0]
+        })
+        print(f"Result for {cell_type}: NES = {senmayo_result['nes'].iloc[0]:.3f}, FDR = {senmayo_result['fdr'].iloc[0]:.3f}")
+    else:
+        print(f"GSEA did not return a result for SenMayo set in {cell_type}.")
+
+if gsea_results_list:
+    final_results_df = pd.DataFrame(gsea_results_list).set_index('cell_type').sort_values(by='normalized_ES (NES)', ascending=False)
+    print("\n\n" + "="*80)
+    print("--- Final GSEA Results: SenMayo Enrichment by Cell Type (vs. Rest) ---")
+    print(final_results_df)
+    print("="*80)
+else:
+    print("\n\n--- GSEA analysis complete, but no results were generated. ---")
